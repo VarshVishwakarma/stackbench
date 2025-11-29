@@ -229,7 +229,7 @@ class LLMEngine:
             if GROQ_API_KEY and not GROQ_AVAILABLE:
                 print("Groq API Key found, but 'groq' library not installed. Falling back to simulator.")
 
-    def generate(self, system_prompt: str, user_prompt: str, model="llama3-8b-8192") -> str:
+    def generate(self, system_prompt: str, user_prompt: str, model="llama-3.1-8b-instant") -> str:
         start_time = time.time()
         result = ""
         
