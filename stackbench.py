@@ -9,6 +9,7 @@ import logging
 import threading
 import pandas as pd
 import altair as alt
+import wikipedia
 from typing import List, Dict, Optional, Any, Deque
 from dataclasses import dataclass, field
 from collections import deque
@@ -37,7 +38,7 @@ GROQ_API_KEY = get_config("GROQ_API_KEY")
 GITHUB_TOKEN = get_config("GITHUB_TOKEN")
 # New Configs
 GITHUB_OAUTH_APP = get_config("GITHUB_OAUTH_APP") # Used as fallback token
-WIKI_API_KEY = get_config("WIKI_API_KEY", "https://en.wikipedia.org/api/rest_v1/page/summary/<TITLE>")
+WIKI_API_KEY = get_config("WIKI_API_KEY") # Optional: API Key or Contact Email for User-Agent
 
 UPTIME_URL = get_config("UPTIME_URL")
 MAX_CONCURRENT_MISSIONS = int(get_config("MAX_CONCURRENT_MISSIONS", "3"))
@@ -188,19 +189,16 @@ class ToolBox:
 
     @staticmethod
     def get_wikipedia_summary(query: str) -> str:
-        """Fetches first paragraph of Wikipedia page using configurable Endpoint."""
-        # Use the configured WIKI_API_KEY as the URL template
-        template = WIKI_API_KEY
-        if not template: 
-            template = "https://en.wikipedia.org/api/rest_v1/page/summary/<TITLE>"
-            
-        url = template.replace("<TITLE>", query.replace(" ", "_"))
-        
+        """Fetches Wikipedia summary using the wikipedia library."""
         try:
-            resp = requests.get(url, timeout=5)
-            if resp.status_code == 200:
-                return resp.json().get("extract", "No extract found.")
+            # The library handles the API calls, redirects, and parsing
+            return wikipedia.summary(query, sentences=3)
+        except wikipedia.exceptions.PageError:
             return "No Wikipedia page found."
+        except wikipedia.exceptions.DisambiguationError as e:
+            # Handle ambiguous queries (e.g., "Python" -> Python (programming language), Python (mythology), etc.)
+            options = e.options[:5]
+            return f"Ambiguous query. Did you mean: {', '.join(options)}?"
         except Exception as e:
             return f"Wiki error: {str(e)}"
 
