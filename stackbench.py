@@ -237,7 +237,7 @@ class LLMEngine:
             # Simulator Fallback
             time.sleep(random.uniform(0.5, 1.5))  # Simulate network latency
             if "Analyst" in system_prompt:
-                result = f"Based on my analysis of {user_prompt}, the technology shows strong adoption trends. GitHub stars are rising."
+                result = "Based on the analysis of the provided technical metrics, the technology shows strong adoption trends. GitHub activity indicates active development and community engagement."
             elif "Verification" in system_prompt:
                 result = "Verified: The GitHub stats are consistent with high-growth projects. Wiki data matches."
             elif "Advisor" in system_prompt:
