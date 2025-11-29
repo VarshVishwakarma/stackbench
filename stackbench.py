@@ -9,8 +9,6 @@ import logging
 import threading
 import pandas as pd
 import altair as alt
-import wikipedia
-import requests
 from typing import List, Dict, Optional, Any, Deque
 from dataclasses import dataclass, field
 from collections import deque
@@ -48,16 +46,6 @@ QUEUE_MISSIONS = get_config("QUEUE_MISSIONS", "true").lower() == "true"
 # Setup basic logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("StackBench")
-
-def get_wiki_summary(topic):
-    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{topic.replace(' ', '_')}"
-    headers = {"User-Agent": "StackBench/1.0 (your@email.com)"}
-    resp = requests.get(url, headers=headers, timeout=5)
-    
-    if resp.status_code == 200:
-        data = resp.json()
-        return data.get("extract", "No summary found.")
-    return "No page found."
 
 # --- UTILITIES: KEEP-ALIVE ---
 def keep_alive_worker():
@@ -200,16 +188,31 @@ class ToolBox:
 
     @staticmethod
     def get_wikipedia_summary(query: str) -> str:
-        """Fetches Wikipedia summary using the wikipedia library."""
+        """Fetches Wikipedia summary using requests (avoids heavy library dependency)."""
+        url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + query.replace(" ", "_")
+        
+        headers = {
+            "User-Agent": "StackBench/1.0 (Educational Project)"
+        }
+        
+        # If WIKI_API_KEY is provided, use it in headers.
+        if WIKI_API_KEY:
+            if "@" in WIKI_API_KEY:
+                headers["User-Agent"] = WIKI_API_KEY
+            else:
+                headers["Authorization"] = f"Bearer {WIKI_API_KEY}"
+        
         try:
-            # The library handles the API calls, redirects, and parsing
-            return wikipedia.summary(query, sentences=3)
-        except wikipedia.exceptions.PageError:
-            return "No Wikipedia page found."
-        except wikipedia.exceptions.DisambiguationError as e:
-            # Handle ambiguous queries (e.g., "Python" -> Python (programming language), Python (mythology), etc.)
-            options = e.options[:5]
-            return f"Ambiguous query. Did you mean: {', '.join(options)}?"
+            resp = requests.get(url, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                if "extract" in data:
+                    return data["extract"]
+                if "type" in data and data["type"] == "disambiguation":
+                    return "Ambiguous query. Please be more specific."
+            elif resp.status_code == 404:
+                return "No Wikipedia page found."
+            return f"Wiki API Status: {resp.status_code}"
         except Exception as e:
             return f"Wiki error: {str(e)}"
 
@@ -628,4 +631,3 @@ def run_app():
 
 if __name__ == "__main__":
     run_app()
-
