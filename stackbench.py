@@ -10,6 +10,7 @@ import threading
 import pandas as pd
 import altair as alt
 import wikipedia
+import requests
 from typing import List, Dict, Optional, Any, Deque
 from dataclasses import dataclass, field
 from collections import deque
@@ -47,6 +48,16 @@ QUEUE_MISSIONS = get_config("QUEUE_MISSIONS", "true").lower() == "true"
 # Setup basic logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("StackBench")
+
+def get_wiki_summary(topic):
+    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{topic.replace(' ', '_')}"
+    headers = {"User-Agent": "StackBench/1.0 (your@email.com)"}
+    resp = requests.get(url, headers=headers, timeout=5)
+    
+    if resp.status_code == 200:
+        data = resp.json()
+        return data.get("extract", "No summary found.")
+    return "No page found."
 
 # --- UTILITIES: KEEP-ALIVE ---
 def keep_alive_worker():
@@ -617,3 +628,4 @@ def run_app():
 
 if __name__ == "__main__":
     run_app()
+
