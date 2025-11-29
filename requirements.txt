@@ -5,4 +5,4 @@ pandas==2.2.1
 altair==5.2.0
 python-dotenv==1.0.1
 pytest==8.0.0
-wikipedia
+wikipedia==1.4.0
