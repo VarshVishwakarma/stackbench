@@ -189,6 +189,11 @@ class ToolBox:
     @staticmethod
     def get_wikipedia_summary(query: str) -> str:
         """Fetches Wikipedia summary using requests (avoids heavy library dependency)."""
+        # Heuristic: If input is 'owner/repo', extract 'repo' for better Wiki matching
+        # This prevents 400 Bad Request errors for queries like "streamlit/streamlit"
+        if "/" in query:
+            query = query.split("/")[-1]
+
         url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + query.replace(" ", "_")
         
         headers = {
@@ -305,7 +310,17 @@ class AnalystAgent(Agent):
         github = ToolBox.get_github_stats(tech) # Assuming input is roughly repo-like or we map it
         
         # 2. LLM Analysis
-        prompt = f"Analyze the following data for {tech}. Wiki: {wiki}. GitHub: {github}. Provide a technical summary."
+        # Determine if wiki data is valid or an error message
+        wiki_context = wiki if "Wiki error" not in wiki and "Wiki API Status" not in wiki and "No Wikipedia page" not in wiki else "Data unavailable"
+
+        prompt = (
+            f"You are a Senior Tech Analyst. Analyze the technology '{tech}'.\n"
+            f"Context Data:\n"
+            f"- GitHub Metrics: {json.dumps(github)}\n"
+            f"- Wikipedia Summary: {wiki_context}\n\n"
+            "Task: Provide a concise technical summary. Evaluate its popularity, maturity, and recent activity based on the metrics. "
+            "Do NOT mention API errors or missing data in the final output; focus only on the technology info available."
+        )
         analysis = llm_engine.generate("You are a Senior Tech Analyst.", prompt)
         
         return json.dumps({
@@ -332,7 +347,11 @@ class VerificationAgent(Agent):
                 analyst_data = {"raw_data": "Error parsing"}
         
         # 2. Verify
-        prompt = f"Verify claims in this analysis: {analyst_data.get('analysis', 'No data')}. Check consistency."
+        analysis_text = analyst_data.get('analysis', 'No data')
+        prompt = (
+            f"You are a QA Auditor. Verify the following technical analysis for consistency and realism: '{analysis_text}'. "
+            "Output a brief verification report confirming if the metrics align with the summary."
+        )
         verification = llm_engine.generate("You are a QA Verification Agent.", prompt)
         
         return json.dumps({
@@ -346,7 +365,24 @@ class AdvisorAgent(Agent):
         analyst_out = context.get("analyst_output", {})
         verifier_out = context.get("verifier_output", {})
         
-        prompt = f"Based on Analysis: {analyst_out} and Verification: {verifier_out}, provide a final recommendation."
+        # Clean inputs if they are strings containing JSON
+        if isinstance(analyst_out, str):
+             try: analyst_out = json.loads(analyst_out).get("analysis", "")
+             except: pass
+        if isinstance(verifier_out, str):
+             try: verifier_out = json.loads(verifier_out).get("details", "")
+             except: pass
+
+        prompt = (
+            f"You are a CTO Advisor. Review the analysis below for the technology.\n"
+            f"Analyst Report: {analyst_out}\n"
+            f"Verification: {verifier_out}\n\n"
+            "Task: Provide a final executive recommendation.\n"
+            "Format:\n"
+            "1. Executive Summary\n"
+            "2. Pros & Cons\n"
+            "3. Final Verdict (Adopt/Assess/Hold)"
+        )
         recommendation = llm_engine.generate("You are a CTO Advisor.", prompt)
         
         return recommendation
