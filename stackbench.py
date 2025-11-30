@@ -688,11 +688,20 @@ def run_app():
                             }]
                         }
 
-                        # 1. Try Preferred Models
-                        models_to_try = ["gemini-1.5-flash", "gemini-1.5-flash-001", "gemini-1.5-flash-002", "gemini-1.5-pro", "gemini-1.0-pro"]
+                        # 1. Try Preferred Models - EXPANDED LIST for reliability
+                        models_to_try = [
+                            "gemini-1.5-flash", 
+                            "gemini-1.5-flash-latest",
+                            "gemini-1.5-flash-001",
+                            "gemini-1.5-flash-002",
+                            "gemini-1.5-pro",
+                            "gemini-pro",
+                            "gemini-1.0-pro"
+                        ]
                         success = False
                         used_model = ""
                         final_text = ""
+                        last_error = ""
 
                         for model in models_to_try:
                             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
@@ -702,6 +711,8 @@ def run_app():
                                 used_model = model
                                 final_text = resp.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "")
                                 break
+                            else:
+                                last_error = f"{model}: {resp.status_code} - {resp.text}"
                         
                         # 2. Dynamic Fallback (if preferred failed)
                         if not success:
@@ -711,7 +722,8 @@ def run_app():
                                 if l_resp.status_code == 200:
                                     # Find a model that supports generateContent
                                     for m in l_resp.json().get('models', []):
-                                        if "generateContent" in m.get("supportedGenerationMethods", []) and "vision" not in m.get("name", ""):
+                                        # Relaxed filter: Removed "vision" check to be more inclusive
+                                        if "generateContent" in m.get("supportedGenerationMethods", []):
                                             fname = m['name'].replace("models/", "")
                                             url = f"https://generativelanguage.googleapis.com/v1beta/models/{fname}:generateContent?key={GEMINI_API_KEY}"
                                             resp = requests.post(url, headers=headers, json=payload, timeout=15)
@@ -720,14 +732,16 @@ def run_app():
                                                 used_model = fname
                                                 final_text = resp.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "")
                                                 break
+                                else:
+                                    last_error = f"ListModels failed: {l_resp.status_code} - {l_resp.text}"
                             except Exception as ex:
-                                print(f"Fallback discovery failed: {ex}")
+                                last_error = f"Fallback discovery failed: {str(ex)}"
 
                         if success:
                             st.success(f"Gemini Assessment Complete (Model: {used_model})")
                             st.markdown(f"### ♊ Gemini Second Opinion\n{final_text}")
                         else:
-                            st.error("Gemini API Error: Could not find a working model. Please check your API key.")
+                            st.error(f"Gemini API Error: {last_error}")
                             
                     except Exception as e:
                         st.error(f"Failed to connect to Gemini: {str(e)}")
