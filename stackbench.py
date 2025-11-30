@@ -682,25 +682,33 @@ def run_app():
                         )
                         
                         # Call Gemini API via REST (to avoid extra deps)
-                        # Updated to use gemini-1.5-flash-001 for specific model versioning
-                        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key={GEMINI_API_KEY}"
-                        headers = {"Content-Type": "application/json"}
-                        payload = {
-                            "contents": [{
-                                "parts": [{"text": prompt_text}]
-                            }]
-                        }
+                        # We try a list of stable models to handle regional/account availability differences
+                        models_to_try = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-pro"]
+                        success = False
                         
-                        resp = requests.post(url, headers=headers, json=payload, timeout=15)
+                        for model in models_to_try:
+                            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
+                            headers = {"Content-Type": "application/json"}
+                            payload = {
+                                "contents": [{
+                                    "parts": [{"text": prompt_text}]
+                                }]
+                            }
+                            
+                            resp = requests.post(url, headers=headers, json=payload, timeout=15)
+                            
+                            if resp.status_code == 200:
+                                result = resp.json()
+                                # Extract text
+                                gemini_text = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "No response text found.")
+                                st.success(f"Gemini Assessment Complete (Model: {model})")
+                                st.markdown(f"### ♊ Gemini Second Opinion\n{gemini_text}")
+                                success = True
+                                break
+                            # If not 200, try the next model
                         
-                        if resp.status_code == 200:
-                            result = resp.json()
-                            # Extract text
-                            gemini_text = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "No response text found.")
-                            st.success("Gemini Assessment Complete")
-                            st.markdown(f"### ♊ Gemini Second Opinion\n{gemini_text}")
-                        else:
-                            st.error(f"Gemini API Error: {resp.status_code} - {resp.text}")
+                        if not success:
+                            st.error(f"Gemini API Error: All models failed. Last status: {resp.status_code} - {resp.text}")
                             
                     except Exception as e:
                         st.error(f"Failed to connect to Gemini: {str(e)}")
