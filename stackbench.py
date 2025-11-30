@@ -681,34 +681,53 @@ def run_app():
                             "Provide a 'Second Opinion'. Identify blind spots, agree/disagree with the Advisor, and provide deeper context."
                         )
                         
-                        # Call Gemini API via REST (to avoid extra deps)
-                        # We try a list of stable models to handle regional/account availability differences
-                        models_to_try = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-pro"]
+                        headers = {"Content-Type": "application/json"}
+                        payload = {
+                            "contents": [{
+                                "parts": [{"text": prompt_text}]
+                            }]
+                        }
+
+                        # 1. Try Preferred Models
+                        models_to_try = ["gemini-1.5-flash", "gemini-1.5-flash-001", "gemini-1.5-flash-002", "gemini-1.5-pro", "gemini-1.0-pro"]
                         success = False
-                        
+                        used_model = ""
+                        final_text = ""
+
                         for model in models_to_try:
                             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
-                            headers = {"Content-Type": "application/json"}
-                            payload = {
-                                "contents": [{
-                                    "parts": [{"text": prompt_text}]
-                                }]
-                            }
-                            
                             resp = requests.post(url, headers=headers, json=payload, timeout=15)
-                            
                             if resp.status_code == 200:
-                                result = resp.json()
-                                # Extract text
-                                gemini_text = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "No response text found.")
-                                st.success(f"Gemini Assessment Complete (Model: {model})")
-                                st.markdown(f"### ♊ Gemini Second Opinion\n{gemini_text}")
                                 success = True
+                                used_model = model
+                                final_text = resp.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "")
                                 break
-                            # If not 200, try the next model
                         
+                        # 2. Dynamic Fallback (if preferred failed)
                         if not success:
-                            st.error(f"Gemini API Error: All models failed. Last status: {resp.status_code} - {resp.text}")
+                            try:
+                                list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
+                                l_resp = requests.get(list_url, timeout=10)
+                                if l_resp.status_code == 200:
+                                    # Find a model that supports generateContent
+                                    for m in l_resp.json().get('models', []):
+                                        if "generateContent" in m.get("supportedGenerationMethods", []) and "vision" not in m.get("name", ""):
+                                            fname = m['name'].replace("models/", "")
+                                            url = f"https://generativelanguage.googleapis.com/v1beta/models/{fname}:generateContent?key={GEMINI_API_KEY}"
+                                            resp = requests.post(url, headers=headers, json=payload, timeout=15)
+                                            if resp.status_code == 200:
+                                                success = True
+                                                used_model = fname
+                                                final_text = resp.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "")
+                                                break
+                            except Exception as ex:
+                                print(f"Fallback discovery failed: {ex}")
+
+                        if success:
+                            st.success(f"Gemini Assessment Complete (Model: {used_model})")
+                            st.markdown(f"### ♊ Gemini Second Opinion\n{final_text}")
+                        else:
+                            st.error("Gemini API Error: Could not find a working model. Please check your API key.")
                             
                     except Exception as e:
                         st.error(f"Failed to connect to Gemini: {str(e)}")
