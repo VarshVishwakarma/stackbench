@@ -682,8 +682,8 @@ def run_app():
                         )
                         
                         # Call Gemini API via REST (to avoid extra deps)
-                        # Using gemini-1.5-flash as it is fast and efficient
-                        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+                        # Updated to use gemini-1.5-flash-001 for specific model versioning
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key={GEMINI_API_KEY}"
                         headers = {"Content-Type": "application/json"}
                         payload = {
                             "contents": [{
