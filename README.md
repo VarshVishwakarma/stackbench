@@ -1,4 +1,4 @@
-#STACKBENCH — Multi-Agent Framework Comparator
+STACKBENCH — Multi-Agent Framework Comparator
 AI-Powered · Evidence-Driven · Parallel · Developer-Focused
 
 StackBench is a next-generation multi-agent research copilot that analyzes developer frameworks using:
