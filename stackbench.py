@@ -38,6 +38,7 @@ GITHUB_TOKEN = get_config("GITHUB_TOKEN")
 # New Configs
 GITHUB_OAUTH_APP = get_config("GITHUB_OAUTH_APP") # Used as fallback token
 WIKI_API_KEY = get_config("WIKI_API_KEY") # Optional: API Key or Contact Email for User-Agent
+GEMINI_API_KEY = get_config("GEMINI_API_KEY") # For Deep Dive feature
 
 UPTIME_URL = get_config("UPTIME_URL")
 MAX_CONCURRENT_MISSIONS = int(get_config("MAX_CONCURRENT_MISSIONS", "3"))
@@ -664,6 +665,45 @@ def run_app():
             st.write(last_report['verification_status'])
 
         st.download_button("Download Report JSON", json.dumps(last_report, indent=2), "report.json")
+        
+        # --- GEMINI DEEP DIVE ---
+        st.divider()
+        if st.button("Ask Gemini for a deeper assessment ✨"):
+            if not GEMINI_API_KEY:
+                st.warning("Please configure GEMINI_API_KEY in secrets to use this feature.")
+            else:
+                with st.spinner("Gemini is analyzing the report..."):
+                    try:
+                        # Construct Prompt
+                        prompt_text = (
+                            f"You are a Senior Technology Architect. Review this automated technical report:\n\n"
+                            f"{json.dumps(last_report, indent=2)}\n\n"
+                            "Provide a 'Second Opinion'. Identify blind spots, agree/disagree with the Advisor, and provide deeper context."
+                        )
+                        
+                        # Call Gemini API via REST (to avoid extra deps)
+                        # Using gemini-1.5-flash as it is fast and efficient
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+                        headers = {"Content-Type": "application/json"}
+                        payload = {
+                            "contents": [{
+                                "parts": [{"text": prompt_text}]
+                            }]
+                        }
+                        
+                        resp = requests.post(url, headers=headers, json=payload, timeout=15)
+                        
+                        if resp.status_code == 200:
+                            result = resp.json()
+                            # Extract text
+                            gemini_text = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "No response text found.")
+                            st.success("Gemini Assessment Complete")
+                            st.markdown(f"### ♊ Gemini Second Opinion\n{gemini_text}")
+                        else:
+                            st.error(f"Gemini API Error: {resp.status_code} - {resp.text}")
+                            
+                    except Exception as e:
+                        st.error(f"Failed to connect to Gemini: {str(e)}")
 
 if __name__ == "__main__":
     run_app()
