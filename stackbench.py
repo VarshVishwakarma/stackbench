@@ -705,7 +705,8 @@ def run_app():
 
                         for model in models_to_try:
                             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
-                            resp = requests.post(url, headers=headers, json=payload, timeout=15)
+                            # Increased timeout from 15 to 30
+                            resp = requests.post(url, headers=headers, json=payload, timeout=30)
                             if resp.status_code == 200:
                                 success = True
                                 used_model = model
@@ -718,7 +719,8 @@ def run_app():
                         if not success:
                             try:
                                 list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
-                                l_resp = requests.get(list_url, timeout=10)
+                                # Increased timeout from 10 to 30
+                                l_resp = requests.get(list_url, timeout=30)
                                 if l_resp.status_code == 200:
                                     # Find a model that supports generateContent
                                     for m in l_resp.json().get('models', []):
@@ -726,7 +728,8 @@ def run_app():
                                         if "generateContent" in m.get("supportedGenerationMethods", []):
                                             fname = m['name'].replace("models/", "")
                                             url = f"https://generativelanguage.googleapis.com/v1beta/models/{fname}:generateContent?key={GEMINI_API_KEY}"
-                                            resp = requests.post(url, headers=headers, json=payload, timeout=15)
+                                            # Increased timeout from 15 to 30
+                                            resp = requests.post(url, headers=headers, json=payload, timeout=30)
                                             if resp.status_code == 200:
                                                 success = True
                                                 used_model = fname
