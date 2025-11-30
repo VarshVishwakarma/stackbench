@@ -27,7 +27,6 @@ except ImportError:
 st.set_page_config(page_title="StackBench", page_icon="🤖", layout="wide")
 
 # Load environment variables
-# Check Streamlit secrets first, then fallback to os.getenv
 def get_config(key, default=""):
     if key in st.secrets:
         return st.secrets[key]
@@ -37,7 +36,7 @@ GROQ_API_KEY = get_config("GROQ_API_KEY")
 GITHUB_TOKEN = get_config("GITHUB_TOKEN")
 # New Configs
 GITHUB_OAUTH_APP = get_config("GITHUB_OAUTH_APP") # Used as fallback token
-WIKI_API_KEY = get_config("WIKI_API_KEY") # Optional: API Key or Contact Email for User-Agent
+WIKI_API_KEY = get_config("WIKI_API_KEY") # API Key or Contact Email for User-Agent
 GEMINI_API_KEY = get_config("GEMINI_API_KEY") # For Deep Dive feature
 
 UPTIME_URL = get_config("UPTIME_URL")
@@ -201,7 +200,7 @@ class ToolBox:
             "User-Agent": "StackBench/1.0 (Educational Project)"
         }
         
-        # If WIKI_API_KEY is provided, use it in headers.
+        # WIKI_API_KEY is provided, use it in headers.
         if WIKI_API_KEY:
             if "@" in WIKI_API_KEY:
                 headers["User-Agent"] = WIKI_API_KEY
@@ -434,8 +433,6 @@ class Orchestrator:
             future_analyst = self.executor.submit(analyst.think_and_act, {"target": query})
             
             # 2. Start Verifier (Simulate it starting purely parallel work before receiving data)
-            # In a real app, it might check cache or static rules.
-            # We wrap verifier logic to wait for message inside its thread or orchestrator
             def verifier_lifecycle():
                 # Simulate initial work
                 time.sleep(0.5)
@@ -751,3 +748,4 @@ def run_app():
 
 if __name__ == "__main__":
     run_app()
+
